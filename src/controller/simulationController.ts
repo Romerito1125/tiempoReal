@@ -1,13 +1,20 @@
-// src/controllers/simulationController.ts
-
-import { Request, Response, RequestHandler } from "express";
+import { Request, Response, RequestHandler  } from "express";
 import { startSimulation, stopSimulation, getBusesByRoute } from "../services/busSimulator";
+import { supabase } from "../services/supabaseClient";
+import { getRecorridoPorRuta } from "../services/busSimulator";
 
-// Iniciar simulación
-export const startSimulationHandler = async (_req: Request, res: Response) => {
+
+// Iniciar simulación para una ruta específica
+export const startSimulationHandler = async (req: Request, res: Response) => {
+  const { idruta } = req.body;
+
+  if (!idruta) {
+    return res.status(400).json({ error: 'Se requiere idruta' });
+  }
+
   try {
-    await startSimulation();
-    res.json({ message: 'Simulación iniciada' });
+    await startSimulation(idruta);
+    res.json({ message: `Simulación iniciada para ruta ${idruta}` });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
   }
@@ -23,20 +30,37 @@ export const stopSimulationHandler = (_req: Request, res: Response) => {
   }
 };
 
-export const getBusesByRouteHandler: RequestHandler = async (req: Request, res: Response) => {
-    try {
-      const idRuta = Number(req.params.idRuta);
-  
-      if (isNaN(idRuta)) {
-        res.status(400).json({ error: 'idRuta inválida' });
-        return; // Opcional, pero ayuda a que no siga ejecutando.
-      }
-  
-      const buses = await getBusesByRoute(idRuta);
-      res.json(buses);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
+
+export const getBusesByRouteHandler = async (req: Request, res: Response) => {
+  const idRuta = req.params.idRuta as string;
+
+  if (!idRuta) {
+    return res.status(400).json({ error: 'idRuta inválida' });
+  }
+
+  try {
+    const { data: ruta, error } = await supabase
+      .from('rutas')
+      .select('idruta')
+      .eq('idruta', idRuta)
+      .single();
+
+    if (error || !ruta) {
+      return res.status(404).json({ error: `La ruta '${idRuta}' no existe en el sistema` });
     }
-  };
-  
-  
+
+    const buses = await getBusesByRoute(idRuta);
+    return res.json(buses);
+  } catch (error) {
+    return res.status(500).json({ error: (error as Error).message });
+  }
+};
+export const getRecorridoHandler: RequestHandler = async (req, res) => {
+  const { idruta } = req.params;
+  try {
+    const estaciones = await getRecorridoPorRuta(idruta);
+    res.json(estaciones);
+  } catch (error) {
+    res.status(500).json({ error: (error as Error).message });
+  }
+};

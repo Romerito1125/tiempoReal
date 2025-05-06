@@ -1,92 +1,126 @@
-// src/services/busSimulator.ts
+import { supabase } from './supabaseClient';
 
-import { supabase } from "./supabaseClient";
+interface Estacion {
+  idestacion: string;
+  nombre: string;
+  lat: number;
+  lon: number;
+}
 
 interface Bus {
   idbus: number;
-  idruta: number;
+  idruta: string;
   lat: number;
   lon: number;
+  recorrido: Estacion[];
+  enVuelta: boolean;
+  posicionActual: number;
 }
 
-
-interface Position {
-  lat: number;
-  lon: number;
-}
-
-const posicionesT31: Position[] = [
-  { lat: 3.42158, lon: -76.5205 },
-  { lat: 3.42200, lon: -76.5210 },
-  { lat: 3.42250, lon: -76.5215 },
-  { lat: 3.42300, lon: -76.5220 },
-  { lat: 3.42350, lon: -76.5225 },
-
-];
-
-
-let buses: Bus[] = []; // Todos los buses cargados
+let buses: Bus[] = [];
 let simulationInterval: NodeJS.Timeout | null = null;
-const movementDelta = 0.0005; // Cuánto se mueve el bus cada vez
+const INTERVALO_MOVIMIENTO = 60000; // 60 segundos
 
-// Cargar los buses desde la BD
-export const loadBusesFromDB = async () => {
-  const { data, error } = await supabase.from('bus').select('*');
+// Iniciar simulación solo para una ruta específica
+export const startSimulation = async (idruta: string) => {
+  const { data: busesData, error } = await supabase
+    .from('bus')
+    .select('*')
+    .eq('idruta', idruta);
 
   if (error) throw new Error('Error cargando buses: ' + error.message);
 
-  buses = data as Bus[];
-  console.log('Buses cargados:', buses);
-};
+  // Cargar recorrido único de la ruta
+  const { data: estacionesRuta, error: errorRuta } = await supabase
+    .from('ruta_estacion')
+    .select('orden, estaciones(*)')
+    .eq('idruta', idruta)
+    .order('orden', { ascending: true });
 
-// Función para mover buses
-const moveBuses = async () => {
-  for (const bus of buses) {
-    if (bus.idbus % 5 === 0) {
+  if (errorRuta || !estacionesRuta?.length) {
+    throw new Error(`No se pudo cargar estaciones para la ruta ${idruta}`);
+  }
 
-      bus.lat += movementDelta;
-      bus.lon += movementDelta;
+  const recorrido: Estacion[] = estacionesRuta.map((r: any) => ({
+    idestacion: r.estaciones.idestacion,
+    nombre: r.estaciones.nombre,
+    lat: parseFloat(r.estaciones.lat),
+    lon: parseFloat(r.estaciones.lon),
+  }));
 
-      await supabase
-        .from('bus')
-        .update({ lat: bus.lat, lon: bus.lon })
-        .eq('idbus', bus.idbus);
+  // Asignar buses con ese recorrido
+  buses = (busesData || []).map(bus => ({
+    idbus: bus.idbus,
+    idruta: bus.idruta,
+    lat: recorrido[0].lat,
+    lon: recorrido[0].lon,
+    recorrido,
+    enVuelta: false,
+    posicionActual: 0,
+  }));
 
-      console.log(`Bus Realtime ${bus.idbus} movido en Supabase`);
-    } else {
-      // Los demás se mueven solo en memoria, es decir, en local.
-      bus.lat += movementDelta;
-      bus.lon += movementDelta;
-      console.log(`Bus Simulado ${bus.idbus} movido internamente`);
+  console.log(`🚌 Buses cargados para ruta ${idruta}:`, buses);
+
+  // Lanzar movimiento
+  if (simulationInterval) clearInterval(simulationInterval);
+  simulationInterval = setInterval(() => {
+    for (const bus of buses) {
+      moverBus(bus);
     }
-  }
+  }, INTERVALO_MOVIMIENTO);
 };
 
-// Iniciar la simulación
-export const startSimulation = async () => {
-  if (simulationInterval) {
-    console.log('Simulación ya activa.');
-    return;
-  }
-
-  await loadBusesFromDB();
-
-  simulationInterval = setInterval(moveBuses, 120000); // Cada 120s se actualiza el estado
-  console.log('Simulación iniciada.');
-};
-
-// Detener la simulación
 export const stopSimulation = () => {
   if (simulationInterval) {
     clearInterval(simulationInterval);
     simulationInterval = null;
-    console.log('Simulación detenida.');
-  } else {
-    console.log('No hay simulación activa.');
+    console.log('🛑 Simulación detenida');
   }
 };
 
-// Obtener buses por ruta
-export const getBusesByRoute = (idruta: number) => {
-  return buses.filter((bus) => bus.idruta === idruta);
+const moverBus = (bus: Bus) => {
+  const recorrido = bus.recorrido;
+  if (!recorrido.length) return;
+
+  const estacion = recorrido[bus.posicionActual];
+
+  bus.lat = estacion.lat;
+  bus.lon = estacion.lon;
+
+  console.log(`🚏 Bus ${bus.idbus} → ${estacion.nombre} (${bus.lat}, ${bus.lon})`);
+
+  if (!bus.enVuelta) {
+    bus.posicionActual++;
+    if (bus.posicionActual >= recorrido.length) {
+      bus.enVuelta = true;
+      bus.posicionActual = recorrido.length - 2;
+    }
+  } else {
+    bus.posicionActual--;
+    if (bus.posicionActual < 0) {
+      bus.enVuelta = false;
+      bus.posicionActual = 1;
+    }
+  }
+};
+
+export const getBusesByRoute = async (idruta: string) => {
+  return buses.filter(bus => bus.idruta === idruta);
+};
+
+export const getRecorridoPorRuta = async (idruta: string): Promise<Estacion[]> => {
+  const { data, error } = await supabase
+    .from('ruta_estacion')
+    .select('orden, estaciones(*)')
+    .eq('idruta', idruta)
+    .order('orden', { ascending: true });
+
+  if (error) throw new Error('Error trayendo estaciones: ' + error.message);
+
+  return (data || []).map((r: any) => ({
+    idestacion: r.estaciones.idestacion,
+    nombre: r.estaciones.nombre,
+    lat: parseFloat(r.estaciones.lat),
+    lon: parseFloat(r.estaciones.lon),
+  }));
 };
