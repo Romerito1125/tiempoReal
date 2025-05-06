@@ -1,0 +1,16 @@
+// src/routes/simulationRoutes.ts
+
+import { Router } from "express";
+import {
+  startSimulationHandler,
+  stopSimulationHandler,
+  getBusesByRouteHandler,
+} from "../controller/simulationController";
+
+const router = Router();
+
+router.post('/inicio', startSimulationHandler);
+router.post('/fin', stopSimulationHandler);
+router.get('/buses/:idRuta', getBusesByRouteHandler);
+
+export default router;
