@@ -1,8 +1,6 @@
-import { Request, Response, RequestHandler  } from "express";
-import { startSimulation, stopSimulation, getBusesByRoute } from "../services/busSimulator";
+import { Request, Response } from "express";
+import { startSimulation, stopSimulation, getBusesByRoute, getRecorridoPorRuta } from "../services/busSimulator";
 import { supabase } from "../services/supabaseClient";
-import { getRecorridoPorRuta } from "../services/busSimulator";
-
 
 // Iniciar simulación para una ruta específica
 export const startSimulationHandler = async (req: Request, res: Response) => {
@@ -21,7 +19,7 @@ export const startSimulationHandler = async (req: Request, res: Response) => {
 };
 
 // Detener simulación
-export const stopSimulationHandler = (_req: Request, res: Response) => {
+export const stopSimulationHandler = async (_req: Request, res: Response) => {
   try {
     stopSimulation();
     res.json({ message: 'Simulación detenida' });
@@ -30,9 +28,8 @@ export const stopSimulationHandler = (_req: Request, res: Response) => {
   }
 };
 
-
 export const getBusesByRouteHandler = async (req: Request, res: Response) => {
-  const idRuta = req.params.idRuta as string;
+  const idRuta = req.params.idRuta;
 
   if (!idRuta) {
     return res.status(400).json({ error: 'idRuta inválida' });
@@ -50,12 +47,13 @@ export const getBusesByRouteHandler = async (req: Request, res: Response) => {
     }
 
     const buses = await getBusesByRoute(idRuta);
-    return res.json(buses);
+    res.json(buses);
   } catch (error) {
-    return res.status(500).json({ error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
   }
 };
-export const getRecorridoHandler: RequestHandler = async (req, res) => {
+
+export const getRecorridoHandler = async (req: Request, res: Response) => {
   const { idruta } = req.params;
   try {
     const estaciones = await getRecorridoPorRuta(idruta);
