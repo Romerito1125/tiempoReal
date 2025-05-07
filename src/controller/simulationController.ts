@@ -1,3 +1,6 @@
+
+// src/controller/simulationController.ts
+
 import { Request, Response } from "express";
 import { startSimulation, stopSimulation, getBusesByRoute, getRecorridoPorRuta } from "../services/busSimulator";
 import { supabase } from "../services/supabaseClient";
