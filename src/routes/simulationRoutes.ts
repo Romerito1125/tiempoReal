@@ -1,5 +1,5 @@
 // src/routes/simulationRoutes.ts
-
+//Pruebasa
 import { Router } from "express";
 import {
   startSimulationHandler,
@@ -14,4 +14,5 @@ router.post('/inicio', startSimulationHandler);
 router.post('/fin', stopSimulationHandler);
 router.get('/buses/:idRuta', getBusesByRouteHandler);
 router.get("/recorrido/:idruta", getRecorridoHandler);
+
 export default router;
