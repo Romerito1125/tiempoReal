@@ -19,18 +19,25 @@ interface Bus {
 
 let buses: Bus[] = [];
 let simulationInterval: NodeJS.Timeout | null = null;
-const INTERVALO_MOVIMIENTO = 60000; // 60 segundos
+let idRutaActual: string | null = null;
 
-// Iniciar simulación solo para una ruta específica
+const INTERVALO_MOVIMIENTO = 60000;
+
 export const startSimulation = async (idruta: string) => {
+  if (idruta === idRutaActual && buses.length > 0) {
+    console.log(`✅ Simulación ya en curso para ruta ${idruta}`);
+    return;
+  }
+
   const { data: busesData, error } = await supabase
     .from('bus')
     .select('*')
     .eq('idruta', idruta);
 
-  if (error) throw new Error('Error cargando buses: ' + error.message);
+  if (error || !busesData?.length) {
+    throw new Error('❌ No se encontraron buses para la ruta o hubo error');
+  }
 
-  // Cargar recorrido único de la ruta
   const { data: estacionesRuta, error: errorRuta } = await supabase
     .from('ruta_estacion')
     .select('orden, estaciones(*)')
@@ -38,7 +45,7 @@ export const startSimulation = async (idruta: string) => {
     .order('orden', { ascending: true });
 
   if (errorRuta || !estacionesRuta?.length) {
-    throw new Error(`No se pudo cargar estaciones para la ruta ${idruta}`);
+    throw new Error(`❌ No se pudo cargar estaciones para la ruta ${idruta}`);
   }
 
   const recorrido: Estacion[] = estacionesRuta.map((r: any) => ({
@@ -48,32 +55,38 @@ export const startSimulation = async (idruta: string) => {
     lon: parseFloat(r.estaciones.lon),
   }));
 
-  // Asignar buses con ese recorrido
-  buses = (busesData || []).map(bus => ({
-    idbus: bus.idbus,
-    idruta: bus.idruta,
-    lat: recorrido[0].lat,
-    lon: recorrido[0].lon,
-    recorrido,
-    enVuelta: false,
-    posicionActual: 0,
-  }));
+  idRutaActual = idruta;
 
-  console.log(`🚌 Buses cargados para ruta ${idruta}:`, buses);
+  buses = busesData.map((bus, index) => {
+    const posicionInicial = (index * 2) % recorrido.length;
+    return {
+      idbus: bus.idbus,
+      idruta: bus.idruta,
+      lat: recorrido[posicionInicial].lat,
+      lon: recorrido[posicionInicial].lon,
+      recorrido,
+      enVuelta: false,
+      posicionActual: posicionInicial,
+    };
+  });
 
-  // Lanzar movimiento
-  if (simulationInterval) clearInterval(simulationInterval);
-  simulationInterval = setInterval(() => {
-    for (const bus of buses) {
-      moverBus(bus);
-    }
-  }, INTERVALO_MOVIMIENTO);
+  console.log(`🚌 Buses cargados para ruta ${idruta}:`, buses.map(b => b.idbus));
+
+  if (!simulationInterval) {
+    simulationInterval = setInterval(() => {
+      for (const bus of buses) {
+        moverBus(bus);
+      }
+    }, INTERVALO_MOVIMIENTO);
+  }
 };
 
 export const stopSimulation = () => {
   if (simulationInterval) {
     clearInterval(simulationInterval);
     simulationInterval = null;
+    buses = [];
+    idRutaActual = null;
     console.log('🛑 Simulación detenida');
   }
 };
@@ -83,11 +96,18 @@ const moverBus = (bus: Bus) => {
   if (!recorrido.length) return;
 
   const estacion = recorrido[bus.posicionActual];
-
   bus.lat = estacion.lat;
   bus.lon = estacion.lon;
 
   console.log(`🚏 Bus ${bus.idbus} → ${estacion.nombre} (${bus.lat}, ${bus.lon})`);
+
+  supabase
+    .from('bus')
+    .update({ lat: bus.lat, lon: bus.lon })
+    .eq('idbus', bus.idbus)
+    .then(({ error }) => {
+      if (error) console.error(`❌ Error al actualizar bus ${bus.idbus}:`, error.message);
+    });
 
   if (!bus.enVuelta) {
     bus.posicionActual++;
@@ -104,8 +124,13 @@ const moverBus = (bus: Bus) => {
   }
 };
 
-export const getBusesByRoute = async (idruta: string) => {
-  return buses.filter(bus => bus.idruta === idruta);
+export const getBusesByRoute = async (idruta: string): Promise<Bus[]> => {
+  const { data, error } = await supabase
+    .from('bus')
+    .select('*')
+    .eq('idruta', idruta);
+  if (error) throw new Error("Error obteniendo buses: " + error.message);
+  return data as Bus[];
 };
 
 export const getRecorridoPorRuta = async (idruta: string): Promise<Estacion[]> => {
