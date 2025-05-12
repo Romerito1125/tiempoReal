@@ -1,4 +1,8 @@
+// src/services/busSimulator.ts
+
 import { supabase } from './supabaseClient';
+import { Subject } from './observer';
+import { ConsoleLogger } from './consoleLogger';
 
 interface Estacion {
   idestacion: string;
@@ -20,8 +24,12 @@ interface Bus {
 let buses: Bus[] = [];
 let simulationInterval: NodeJS.Timeout | null = null;
 let idRutaActual: string | null = null;
-
 const INTERVALO_MOVIMIENTO = 60000;
+
+// ------------------- Observer Setup -------------------
+const busNotifier = new Subject();
+busNotifier.attach(new ConsoleLogger()); // Puedes agregar aquí el WebSocketNotifier
+// ------------------------------------------------------
 
 export const startSimulation = async (idruta: string) => {
   if (idruta === idRutaActual && buses.length > 0) {
@@ -99,7 +107,8 @@ const moverBus = (bus: Bus) => {
   bus.lat = estacion.lat;
   bus.lon = estacion.lon;
 
-  console.log(`🚏 Bus ${bus.idbus} → ${estacion.nombre} (${bus.lat}, ${bus.lon})`);
+  // Notificar a todos los observadores registrados
+  busNotifier.notify(bus.idbus, bus.lat, bus.lon);
 
   supabase
     .from('bus')
