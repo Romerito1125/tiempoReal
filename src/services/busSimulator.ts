@@ -106,7 +106,7 @@ const moverBus = (bus: Bus) => {
     .update({ lat: bus.lat, lon: bus.lon })
     .eq('idbus', bus.idbus)
     .then(({ error }) => {
-      if (error) console.error(`❌ Error al actualizar bus ${bus.idbus}:`, error.message);
+      if (error) console.error(`Error al actualizar bus ${bus.idbus}:`, error.message);
     });
 
   if (!bus.enVuelta) {
