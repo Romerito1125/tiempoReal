@@ -25,7 +25,7 @@ interface Bus {
 let buses: Bus[] = [];
 let simulationInterval: NodeJS.Timeout | null = null;
 let idRutaActual: string | null = null;
-const INTERVALO_MOVIMIENTO = 60000; // 60 segundos
+const INTERVALO_MOVIMIENTO = 60000;
 
 const busNotifier = new Subject();
 busNotifier.attach(new ConsoleLogger());
@@ -56,11 +56,10 @@ export const startSimulation = async (idruta: string) => {
     const enVuelta = Math.random() < 0.5;
     const estructura = enVuelta ? new Stack<Estacion>() : new Queue<Estacion>();
 
-    // Estación aleatoria de inicio
     const posicionInicial = Math.floor(Math.random() * recorridoPlano.length);
     const desde = enVuelta
-      ? recorridoPlano.slice(0, posicionInicial + 1).reverse()
-      : recorridoPlano.slice(posicionInicial);
+      ? recorridoPlano.slice(posicionInicial + 1) // hacia el inicio
+      : recorridoPlano.slice(0, posicionInicial + 1).reverse(); // hacia el final
 
     if (enVuelta) {
       const stack = estructura as Stack<Estacion>;
@@ -70,7 +69,7 @@ export const startSimulation = async (idruta: string) => {
       desde.forEach(est => queue.enqueue(est));
     }
 
-    const estacionInicio = desde[0];
+    const estacionInicio = recorridoPlano[posicionInicial];
 
     return {
       idbus: bus.idbus,
@@ -85,19 +84,16 @@ export const startSimulation = async (idruta: string) => {
   console.log(`🚌 Buses cargados para ruta ${idruta}:`, buses.map(b => `#${b.idbus} [${b.enVuelta ? "vuelta" : "ida"}]`));
 
   if (!simulationInterval) {
-    // ⏱ Primer movimiento rápido tras 1 segundo
     setTimeout(() => {
       for (const bus of buses) {
         moverBus(bus, recorridoPlano);
       }
 
-      // 🕐 Luego cada 60 segundos
       simulationInterval = setInterval(() => {
         for (const bus of buses) {
           moverBus(bus, recorridoPlano);
         }
       }, INTERVALO_MOVIMIENTO);
-
     }, 1000);
   }
 };
@@ -118,10 +114,11 @@ const moverBus = (bus: Bus, recorridoBase: Estacion[]) => {
     : (bus.recorrido as Queue<Estacion>).dequeue();
 
   if (!siguiente) {
-    // 🚨 Aquí se invierte la dirección y se reinicia el recorrido
     bus.enVuelta = !bus.enVuelta;
     const nueva = bus.enVuelta ? new Stack<Estacion>() : new Queue<Estacion>();
-    const ests = bus.enVuelta ? [...recorridoBase].reverse() : recorridoBase;
+    const ests = bus.enVuelta
+      ? recorridoBase.slice() // sin invertir
+      : [...recorridoBase].reverse(); // invertir para ida
 
     if (bus.enVuelta) {
       const stack = nueva as Stack<Estacion>;
@@ -133,7 +130,6 @@ const moverBus = (bus: Bus, recorridoBase: Estacion[]) => {
 
     bus.recorrido = nueva;
 
-    // ✅ ACTUALIZAR enVuelta en Supabase inmediatamente
     supabase
       .from('bus')
       .update({ enVuelta: bus.enVuelta })
@@ -142,7 +138,7 @@ const moverBus = (bus: Bus, recorridoBase: Estacion[]) => {
         if (error) console.error(`❌ Error al actualizar enVuelta del bus ${bus.idbus}:`, error.message);
       });
 
-    return moverBus(bus, recorridoBase); // Reintentar movimiento con nueva dirección
+    return moverBus(bus, recorridoBase);
   }
 
   bus.lat = siguiente.lat;
@@ -180,7 +176,6 @@ export const getBusesByRoute = async (idruta: string): Promise<any[]> => {
     destino: bus.enVuelta ? primer : ultimo
   }));
 };
-
 
 export const getRecorridoPorRuta = async (idruta: string): Promise<Estacion[]> => {
   const { data, error } = await supabase
