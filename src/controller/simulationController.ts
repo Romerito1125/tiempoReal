@@ -1,18 +1,21 @@
+//src/controller/simulationController.ts
+
 import { Request, Response } from "express";
 import {
   startSimulation,
   stopSimulation,
   getBusesByRoute,
-  getRecorridoPorRuta
+  getRecorridoPorRuta,
 } from "../services/busSimulator";
 import { supabase } from "../services/supabaseClient";
+import { calcularTiempoLlegada } from "../services/tiempoLlegada";
 
 // Iniciar simulación para una ruta específica
 export const startSimulationHandler = async (req: Request, res: Response) => {
   const { idruta } = req.body;
 
   if (!idruta) {
-    return res.status(400).json({ error: 'Se requiere idruta' });
+    return res.status(400).json({ error: "Se requiere idruta" });
   }
 
   try {
@@ -28,7 +31,7 @@ export const startSimulationHandler = async (req: Request, res: Response) => {
 export const stopSimulationHandler = async (_req: Request, res: Response) => {
   try {
     stopSimulation();
-    res.json({ message: 'Simulación detenida' });
+    res.json({ message: "Simulación detenida" });
   } catch (error) {
     console.error(`❌ Error al detener simulación:`, error);
     res.status(500).json({ error: (error as Error).message });
@@ -44,18 +47,8 @@ export const getBusesByRouteHandler = async (req: Request, res: Response) => {
   }
 
   try {
-    const { data: ruta, error } = await supabase
-      .from('rutas')
-      .select('idruta')
-      .eq('idruta', idRuta)
-      .single();
-
-    if (error || !ruta) {
-      return res.status(404).json({ error: `La ruta '${idRuta}' no existe en el sistema` });
-    }
-
     const buses = await getBusesByRoute(idRuta);
-    res.json(buses);
+    res.json(buses); // 👈 esto ya incluirá enVuelta
   } catch (error) {
     console.error(`❌ Error al obtener buses:`, error);
     res.status(500).json({ error: (error as Error).message });
@@ -67,7 +60,7 @@ export const getRecorridoHandler = async (req: Request, res: Response) => {
   const { idruta } = req.params;
 
   if (!idruta) {
-    return res.status(400).json({ error: 'Se requiere idruta' });
+    return res.status(400).json({ error: "Se requiere idruta" });
   }
 
   try {
@@ -75,6 +68,23 @@ export const getRecorridoHandler = async (req: Request, res: Response) => {
     res.json(estaciones);
   } catch (error) {
     console.error(`❌ Error al obtener recorrido:`, error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+};
+
+
+export const getTiempoLlegadaHandler = async (req: Request, res: Response) => {
+  const { idestacion } = req.params;
+
+  if (!idestacion) {
+    return res.status(400).json({ error: "Se requiere idestacion" });
+  }
+
+  try {
+    const resultado = await calcularTiempoLlegada(idestacion);
+    res.json(resultado);
+  } catch (error) {
+    console.error("❌ Error al calcular tiempo de llegada:", error);
     res.status(500).json({ error: (error as Error).message });
   }
 };

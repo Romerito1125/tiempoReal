@@ -4,6 +4,7 @@ import busRoutes from './routes/busRouters';
 import 'dotenv/config';
 import { iniciarCanalesRealtime } from './services/realTime';
 import simulationRoutes from './routes/simulationRoutes';
+import llegadasRouter from "./routes/llegadasRouter";
 import rutasRouter from './routes/rutasRouter'; // ajusta la ruta según tu estructura
 
 const app = express();
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use('/rutas', rutasRouter);
 app.use('/api', busRoutes);
 app.use('/sim', simulationRoutes);
+app.use('/info', llegadasRouter);
 
 
 // Puerto
