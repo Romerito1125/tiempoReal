@@ -6,6 +6,7 @@ import { iniciarCanalesRealtime } from './services/realTime';
 import simulationRoutes from './routes/simulationRoutes';
 import llegadasRouter from "./routes/llegadasRouter";
 import rutasRouter from './routes/rutasRouter'; // ajusta la ruta según tu estructura
+import viajeRouter from "./routes/viajeRouter";
 
 const app = express();
 
@@ -16,6 +17,8 @@ app.use('/rutas', rutasRouter);
 app.use('/api', busRoutes);
 app.use('/sim', simulationRoutes);
 app.use('/info', llegadasRouter);
+app.use("/viajes", viajeRouter);
+
 
 
 // Puerto
