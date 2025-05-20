@@ -9,3 +9,13 @@ export const obtenerTodasLasEstaciones = async () => {
 
   return data;
 };
+
+export const obtenerEstacionPorId = async (id: String) => {
+  const { data, error } = await supabase
+    .from("estaciones")
+    .select("nombre, Zona")
+    .eq("idestacion", id)
+    .maybeSingle();
+
+  return { data, error };
+};
