@@ -9,7 +9,6 @@ export const planearViaje = async (
   transbordo: boolean;
   estacionTransbordo?: number;
 }> => {
-  // Buscar rutas que contengan el origen
   const { data: rutasOrigen, error: error1 } = await supabase
     .from("ruta_estacion")
     .select("idruta")
@@ -17,7 +16,6 @@ export const planearViaje = async (
 
   if (error1) throw new Error("Error al consultar rutas del origen");
 
-  // Buscar rutas que contengan el destino
   const { data: rutasDestino, error: error2 } = await supabase
     .from("ruta_estacion")
     .select("idruta")
