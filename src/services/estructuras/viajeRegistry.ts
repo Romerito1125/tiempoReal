@@ -14,6 +14,5 @@ export class ViajeRegistry {
   }
 }
 
-// Se registran algunos viajes comunes
 ViajeRegistry.registrar("viaje_normal", new ViajeRuta("Univalle", "Universidades", "normal"));
 ViajeRegistry.registrar("viaje_rapido", new ViajeRuta("Univalle", "Universidades", "rapido"));
