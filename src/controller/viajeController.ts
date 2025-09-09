@@ -13,7 +13,7 @@ export const planearViajeController = async (req: Request, res: Response) => {
     if (viajePrototype) {
       // Si existe el Prototype, usar su método planear()
       const resultado = viajePrototype.planear();
-
+      console.log(resultado);
       return res.status(200).json({
         resultado,
         usadoPrototype: true
