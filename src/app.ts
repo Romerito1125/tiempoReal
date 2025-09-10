@@ -11,7 +11,9 @@ import estacionesRouter from "./routes/estacionesRouter";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+      origin: "https://www.devcorebits.com"
+}));
 app.use(express.json());
 
 app.use('/rutas', rutasRouter);
