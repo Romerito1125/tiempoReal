@@ -1,7 +1,6 @@
 import { supabase } from "./supabaseClient";
 
 export const planearViaje = async (
-  tipo: string,
   origen: number,
   destino: number
 ): Promise<{

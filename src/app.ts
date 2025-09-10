@@ -20,7 +20,7 @@ app.use('/sim', simulationRoutes);
 app.use('/info', llegadasRouter);
 app.use("/viajes", viajeRouter);
 app.use("/estaciones", estacionesRouter);
-
+app.use("/health", (req, res) => res.send("OK"));
 
 
 // Puerto
